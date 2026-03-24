@@ -1,0 +1,41 @@
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# --- SwiftData & iCloud Development ---
+# These are local database artifacts and should not be synced to GitHub
+# (iCloud handles the actual cloud sync; these are just your local dev copies)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+
+# --- Xcode ---
+# Core build folders
+build/
+DerivedData/
+
+# User-specific settings (CRITICAL)
+# This prevents your personal window layouts and breakpoints from being committed
+xcuserdata/
+*.xcuserdatad/
+*.xcscmblueprint
+*.xccheckout
+
+# --- Swift Package Manager ---
+# Ignore local SPM overrides/checkouts
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.swiftpm/configuration/active_scheme.json
+.build/
+
+# --- Security & Provisioning ---
+# Do not commit your personal signing certificates or profiles
+*.ipa
+*.hmap
+*.pem
+*.key
+*.mobileprovision
