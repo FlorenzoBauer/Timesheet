@@ -3,86 +3,172 @@ import SwiftData
 
 struct MonthlySummaryView: View {
     let job: Job
-    @State private var selectedMonth = Date() // Starts at current month
+    @State private var selectedMonth: Date
+    @State private var showingYearlySummary = false
+    @Environment(\.dismiss) private var dismiss
     
-    // UI Colors from your ContentView
-    let blushPink = Color(red: 1.0, green: 0.92, blue: 0.93)
-    let accentPink = Color(red: 0.95, green: 0.75, blue: 0.78)
-    let textDark = Color(red: 0.4, green: 0.3, blue: 0.32)
+    // Theme Integration
+    @StateObject private var theme = ThemeManager.shared
+
+    // MARK: - INITIALIZER
+    init(job: Job, selectedMonth: Date = Date()) {
+        self.job = job
+        _selectedMonth = State(initialValue: selectedMonth)
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with Month Navigation
-            HStack {
-                Button(action: { moveMonth(by: -1) }) {
-                    Image(systemName: "arrow.left.circle.fill")
-                        .font(.title2)
-                }
-                
-                Spacer()
-                
-                Text(selectedMonth.format("MMMM yyyy"))
-                    .font(.headline)
-                    .foregroundColor(textDark)
-                
-                Spacer()
-                
-                Button(action: { moveMonth(by: 1) }) {
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.title2)
+        ZStack {
+            // MARK: - THEME BACKGROUND
+            Group {
+                if theme.isDarkMode {
+                    theme.backgroundColor
+                } else {
+                    Color.white
                 }
             }
-            .padding()
-            .background(accentPink.opacity(0.5))
-            .tint(textDark)
+            .ignoresSafeArea()
 
-            List {
-                let weeks = weeksInMonth(for: selectedMonth)
-                
-                ForEach(weeks, id: \.self) { weekStart in
-                    let stats = statsForWeek(weekStart)
+            VStack(spacing: 0) {
+                // MARK: - HEADER NAVIGATION
+                HStack {
+                    Button(action: { moveMonth(by: -1) }) {
+                        Image(systemName: "chevron.left.circle.fill")
+                            .font(.title2)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 2) {
+                        Text("MONTHLY SUMMARY")
+                            .font(.system(size: 10, weight: .black, design: .rounded))
+                            .foregroundColor(.secondary)
+                        Text(selectedMonth.format("MMMM yyyy").uppercased())
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: { moveMonth(by: 1) }) {
+                        Image(systemName: "chevron.right.circle.fill")
+                            .font(.title2)
+                    }
+                }
+                .padding(.horizontal, 25)
+                .padding(.vertical, 20)
+                .background(theme.effectiveAccent.opacity(0.1))
+                .tint(theme.effectiveAccent)
+
+                // MARK: - WEEKLY BREAKDOWN LIST
+                List {
+                    let weeks = weeksInMonth(for: selectedMonth)
+                    
+                    Section {
+                        ForEach(weeks, id: \.self) { weekStart in
+                            let stats = statsForWeek(weekStart)
+                            
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Week of \(weekStart.format("MMM d"))")
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        .foregroundColor(.primary)
+                                    
+                                    HStack(spacing: 8) {
+                                        Label("\(String(format: "%.1f", stats.hours)) hrs", systemImage: "clock")
+                                        
+                                        if stats.otHours > 0 {
+                                            Text("\(String(format: "%.1f", stats.otHours)) OT")
+                                                .font(.system(size: 10, weight: .black))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(theme.effectiveAccent)
+                                                .foregroundColor(.black)
+                                                .cornerRadius(4)
+                                        }
+                                    }
+                                    .font(.system(size: 12, design: .rounded))
+                                    .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Text(stats.pay, format: .currency(code: "USD"))
+                                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.primary)
+                            }
+                            .padding(.vertical, 10)
+                            // MARK: - GLASSY ROW BACKGROUND
+                            .listRowBackground(
+                                ZStack {
+                                    theme.effectiveAccent.opacity(0.1)
+                                    VisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+                                        .opacity(theme.isDarkMode ? 0.4 : 0.1)
+                                }
+                            )
+                        }
+                    }
+                    
+                    // MARK: - VIEW YEARLY BUTTON
+                    Section {
+                        Button(action: { showingYearlySummary = true }) {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "calendar.badge.clock")
+                                Text("VIEW YEARLY BREAKDOWN")
+                                Spacer()
+                            }
+                            .font(.system(size: 12, weight: .black, design: .rounded))
+                            .foregroundColor(theme.effectiveAccent)
+                        }
+                        .listRowBackground(theme.effectiveAccent.opacity(0.05))
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+
+                // MARK: - TOTAL FOOTER
+                VStack(spacing: 12) {
+                    Divider().background(theme.effectiveAccent.opacity(0.2))
                     
                     HStack {
-                        VStack(alignment: .leading) {
-                            Text("Week of \(weekStart.format("MMM d"))")
-                                .font(.subheadline).bold()
-                            Text("\(stats.hours, specifier: "%.1f") hours")
-                                .font(.caption)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("TOTAL EARNINGS")
+                                .font(.system(size: 10, weight: .black, design: .rounded))
                                 .foregroundColor(.secondary)
+                            
+                            Text(monthlyTotalPay(), format: .currency(code: "USD"))
+                                .font(.system(size: 28, weight: .black, design: .rounded))
+                                .foregroundColor(.primary)
                         }
                         
                         Spacer()
                         
-                        Text(stats.pay, format: .currency(code: "USD"))
-                            .font(.system(.body, design: .monospaced))
-                            .bold()
+                        Button("DONE") { dismiss() }
+                            .font(.system(size: 12, weight: .black))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(theme.effectiveAccent)
+                            .foregroundColor(.black)
+                            .cornerRadius(10)
                     }
-                    .padding(.vertical, 4)
-                    .listRowBackground(blushPink.opacity(0.2))
+                    .padding(.horizontal, 25)
+                    .padding(.bottom, 30)
                 }
+                .background(
+                    ZStack {
+                        theme.isDarkMode ? theme.backgroundColor : Color.white
+                        VisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+                    }
+                )
             }
-            .listStyle(.insetGrouped)
-            
-            // Total Monthly Footer
-            VStack(spacing: 4) {
-                Divider()
-                HStack {
-                    Text("Monthly Total")
-                        .fontWeight(.bold)
-                    Spacer()
-                    Text(monthlyTotal().pay, format: .currency(code: "USD"))
-                        .font(.title3)
-                        .fontWeight(.black)
-                }
-                .padding()
-            }
-            .background(Color.white)
-            .foregroundColor(textDark)
+        }
+        .preferredColorScheme(theme.isDarkMode ? .dark : .light)
+        .sheet(isPresented: $showingYearlySummary) {
+            YearlySummaryView(job: job)
         }
     }
 
-    // MARK: - Calculations
-    
+    // MARK: - LOGIC
     private func moveMonth(by value: Int) {
         if let newMonth = Calendar.current.date(byAdding: .month, value: value, to: selectedMonth) {
             selectedMonth = newMonth
@@ -95,9 +181,7 @@ struct MonthlySummaryView: View {
               let firstDayOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) else { return [] }
         
         var weeks: [Date] = []
-        let days = Array(monthRange)
-        
-        for day in days {
+        for day in monthRange {
             if let dateInMonth = calendar.date(byAdding: .day, value: day - 1, to: firstDayOfMonth) {
                 let weekStart = calendar.startOfWeek(for: dateInMonth)
                 if !weeks.contains(weekStart) {
@@ -108,18 +192,18 @@ struct MonthlySummaryView: View {
         return weeks.sorted()
     }
 
-    private func statsForWeek(_ weekStart: Date) -> (hours: Double, pay: Double) {
-        let entries = job.entries.filter { Calendar.current.isDate($0.date, inSameWeekAs: weekStart) }
-        let totalSeconds = entries.reduce(0) { $0 + $1.endTime.timeIntervalSince($1.startTime) }
-        let totalPay = entries.reduce(0) { $0 + $1.totalPay }
-        return (totalSeconds / 3600.0, totalPay)
+    private func statsForWeek(_ weekStart: Date) -> (hours: Double, otHours: Double, pay: Double) {
+        let entries = (job.entries ?? []).filter { Calendar.current.isDate($0.date, inSameWeekAs: weekStart) }
+        let totalHours = entries.reduce(0.0) { $0 + $1.hours }
+        
+        let earnings = job.calculateEarnings(for: weekStart)
+        let otHours = job.overtimeEnabled ? max(0, totalHours - job.overtimeThreshold) : 0
+        
+        return (totalHours, otHours, earnings.total)
     }
     
-    private func monthlyTotal() -> (hours: Double, pay: Double) {
-        let calendar = Calendar.current
-        let entries = job.entries.filter { calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month) }
-        let totalSeconds = entries.reduce(0) { $0 + $1.endTime.timeIntervalSince($1.startTime) }
-        let totalPay = entries.reduce(0) { $0 + $1.totalPay }
-        return (totalSeconds / 3600.0, totalPay)
+    private func monthlyTotalPay() -> Double {
+        let weeks = weeksInMonth(for: selectedMonth)
+        return weeks.reduce(0.0) { $0 + statsForWeek($1).pay }
     }
 }

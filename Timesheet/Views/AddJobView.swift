@@ -5,6 +5,9 @@ struct AddJobView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
     
+    // Theme Integration
+    @StateObject private var theme = ThemeManager.shared
+    
     var onCreate: (Job) -> Void
     
     @State private var name = ""
@@ -27,12 +30,13 @@ struct AddJobView: View {
                     }
                 } header: {
                     Text("BASIC INFO")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: 10, weight: .black, design: .rounded))
                 }
+                .listRowBackground(theme.isDarkMode ? Color.white.opacity(0.05) : Color.black.opacity(0.03))
                 
                 Section {
                     Toggle("Enable Overtime", isOn: $overtimeEnabled)
-                        .tint(Color("AccentMain"))
+                        .tint(theme.effectiveAccent) // Consistent Accent
                     
                     if overtimeEnabled {
                         HStack {
@@ -41,31 +45,44 @@ struct AddJobView: View {
                             TextField("0.00", text: $overtimeRate)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
-                                .foregroundColor(.blue)
+                                .foregroundColor(theme.effectiveAccent) // Consistent Accent
                         }
                     }
                 } header: {
                     Text("OVERTIME")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: 10, weight: .black, design: .rounded))
                 } footer: {
                     Text("You can still set custom rates for specific days later on the main tracker.")
                 }
+                .listRowBackground(theme.isDarkMode ? Color.white.opacity(0.05) : Color.black.opacity(0.03))
             }
             .navigationTitle("New Job")
             .navigationBarTitleDisplayMode(.inline)
+            .preferredColorScheme(theme.isDarkMode ? .dark : .light)
             .scrollContentBackground(.hidden)
-            .background(Color("AppBackground"))
+            .background(
+                // Matching the dynamic background logic from Settings
+                Group {
+                    if theme.isDarkMode {
+                        theme.backgroundColor.opacity(0.9)
+                    } else {
+                        Color.white.opacity(0.8)
+                    }
+                }
+                .background(.ultraThinMaterial)
+                .ignoresSafeArea()
+            )
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Color("TextSecondary"))
+                        .foregroundColor(theme.effectiveAccent)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         saveJob()
                     }
                     .font(.system(size: 16, weight: .black, design: .rounded))
-                    .foregroundColor(Color("AccentMain"))
+                    .foregroundColor(theme.effectiveAccent)
                     .disabled(name.isEmpty || rate.isEmpty)
                 }
             }
